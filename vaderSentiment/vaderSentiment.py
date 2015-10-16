@@ -18,16 +18,15 @@ For example:
 
 import os, math, re, sys, fnmatch, string
 from casostwitter.Tokenize import extract_tokens_twokenize_and_regex
-reload(sys)
 
 def make_lex_dict(f):
     return dict(map(lambda (w, m): (w, float(m)), [wmsr.strip().split('\t')[0:2] for wmsr in open(f) ]))
     
-f = 'vader_sentiment_lexicon.txt' # empirically derived valence ratings for words, emoticons, slang, swear words, acronyms/initialisms
+f = 'vader_sentiment_lex_no_identities.txt' # empirically derived valence ratings for words, emoticons, slang, swear words, acronyms/initialisms
 try:
     WORD_VALENCE_DICT = make_lex_dict(f)
 except:
-    f = os.path.join(os.path.dirname(__file__),'vader_sentiment_lexicon.txt')
+    f = os.path.join(os.path.dirname(__file__),'vader_sentiment_lex_no_identities.txt')
     WORD_VALENCE_DICT = make_lex_dict(f)
 
 
