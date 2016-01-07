@@ -17,16 +17,16 @@ For example:
 '''
 
 import os, math, re, sys, fnmatch, string
-from casostwitter.Tokenize import extract_tokens_twokenize_and_regex
+from twitter_dm.nlp.Tokenize import extract_tokens_twokenize_and_regex
 
 def make_lex_dict(f):
     return dict(map(lambda (w, m): (w, float(m)), [wmsr.strip().split('\t')[0:2] for wmsr in open(f) ]))
     
-f = 'vader_sentiment_lex_no_identities.txt' # empirically derived valence ratings for words, emoticons, slang, swear words, acronyms/initialisms
+f = 'vader_sentiment_lexicon.txt' # empirically derived valence ratings for words, emoticons, slang, swear words, acronyms/initialisms
 try:
     WORD_VALENCE_DICT = make_lex_dict(f)
 except:
-    f = os.path.join(os.path.dirname(__file__),'vader_sentiment_lex_no_identities.txt')
+    f = os.path.join(os.path.dirname(__file__),'vader_sentiment_lexicon.txt')
     WORD_VALENCE_DICT = make_lex_dict(f)
 
 
@@ -44,14 +44,14 @@ REGEX_REMOVE_PUNCTUATION = re.compile('[%s]' % re.escape(string.punctuation))
 
 PUNC_LIST = [".", "!", "?", ",", ";", ":", "-", "'", "\"",
                 "!!", "!!!", "??", "???", "?!?", "!?!", "?!?!", "!?!?"]
-NEGATE = set(["aint", "arent", "cannot", "cant", "couldnt", "darent", "didnt", "doesnt",
-              "ain't", "aren't", "can't", "couldn't", "daren't", "didn't", "doesn't",
-              "dont", "hadnt", "hasnt", "havent", "isnt", "mightnt", "mustnt", "neither",
-              "don't", "hadn't", "hasn't", "haven't", "isn't", "mightn't", "mustn't",
-              "neednt", "needn't", "never", "none", "nope", "nor", "not", "nothing", "nowhere",
-              "oughtnt", "shant", "shouldnt", "uhuh", "wasnt", "werent",
-              "oughtn't", "shan't", "shouldn't", "uh-uh", "wasn't", "weren't",
-              "without", "wont", "wouldnt", "won't", "wouldn't", "rarely", "seldom", "despite"])
+NEGATE = {"aint", "arent", "cannot", "cant", "couldnt", "darent", "didnt", "doesnt",
+          "ain't", "aren't", "can't", "couldn't", "daren't", "didn't", "doesn't",
+          "dont", "hadnt", "hasnt", "havent", "isnt", "mightnt", "mustnt", "neither",
+          "don't", "hadn't", "hasn't", "haven't", "isn't", "mightn't", "mustn't",
+          "neednt", "needn't", "never", "none", "nope", "nor", "not", "nothing", "nowhere",
+          "oughtnt", "shant", "shouldnt", "uhuh", "wasnt", "werent",
+          "oughtn't", "shan't", "shouldn't", "uh-uh", "wasn't", "weren't",
+          "without", "wont", "wouldnt", "won't", "wouldn't", "rarely", "seldom", "despite"}
 
 # booster/dampener 'intensifiers' or 'degree adverbs' http://en.wiktionary.org/wiki/Category:English_degree_adverbs
 BOOSTER_DICT = {"absolutely": B_INCR, "amazingly": B_INCR, "awfully": B_INCR, "completely": B_INCR, "considerably": B_INCR,
@@ -91,8 +91,8 @@ def negated(list, nWords=NEGATE, includeNT=True):
             return True
     return False
 
-def normalize(score, alpha=15):
-    # normalize the score to be between -1 and 1 using an alpha that approximates the max expected value
+def normalize(score, alpha=1.):
+    # normalize the score to be between -4 and 4 using an alpha that approximates the max expected value
     normScore = score/math.sqrt( ((score*score) + alpha) )
     return normScore
 
@@ -126,7 +126,7 @@ def scalar_inc_dec(word, valence, isCap_diff):
     return scalar
 
 REMOVE_PUNCT_MAP = dict((ord(char), None) for char in string.punctuation)
-def sentiment(text):
+def sentiment(text, sent_dict=WORD_VALENCE_DICT):
     """
     Returns a float for sentiment strength based on the input text.
     Positive values are positive valence, negative value are negative valence.
@@ -138,12 +138,12 @@ def sentiment(text):
     tmp = extract_tokens_twokenize_and_regex(text,
                                        [],[],
                                        make_lowercase=False,
-                                       lemmatize=False,
+                                       do_lemmatize=False,
                                        remove_possessive=False,
                                        do_arabic_stemming=False)
     full = []
     for t in tmp:
-        if t in WORD_VALENCE_DICT:
+        if t in sent_dict:
             full.append(t)
         else:
             r = t.rstrip(string.punctuation).strip(string.punctuation)
@@ -166,10 +166,10 @@ def sentiment(text):
             continue
 
         item_lowercase = lowercase_words[i]
-        if item_lowercase in WORD_VALENCE_DICT:
+        if item_lowercase in sent_dict:
 
             # get the sentiment valence
-            v = float(WORD_VALENCE_DICT[item_lowercase])
+            v = float(sent_dict[item_lowercase])
             
             # check if sentiment laden word is in ALLCAPS (while others aren't)
             if item.isupper() and isCap_diff:
@@ -179,12 +179,12 @@ def sentiment(text):
                     v -= c_INCR
 
             n_scalar = -0.74
-            if i > 0 and lowercase_words[i-1] not in WORD_VALENCE_DICT:
+            if i > 0 and lowercase_words[i-1] not in sent_dict:
                 s1 = scalar_inc_dec(wordsAndEmoticons[i-1], v, isCap_diff)
                 v = v+s1
                 if negated([wordsAndEmoticons[i-1]]):
                     v *= n_scalar
-            if i > 1 and lowercase_words[i-2] not in WORD_VALENCE_DICT:
+            if i > 1 and lowercase_words[i-2] not in sent_dict:
                 s2 = scalar_inc_dec(wordsAndEmoticons[i-2], v,isCap_diff)
                 if s2 != 0:
                     s2 *= 0.95
@@ -195,7 +195,7 @@ def sentiment(text):
                 # otherwise, check for negation/nullification
                 elif negated([lowercase_words[i-2]]):
                     v *= n_scalar
-            if i > 2 and lowercase_words[i-3] not in WORD_VALENCE_DICT:
+            if i > 2 and lowercase_words[i-3] not in sent_dict:
                 s3 = scalar_inc_dec(wordsAndEmoticons[i-3], v,isCap_diff)
                 if s3 != 0:
                     s3 *= 0.9
@@ -242,11 +242,11 @@ def sentiment(text):
                     v = v+B_DECR
             
             # check for negation case using "least"
-            if i > 1 and  lowercase_words[i-1] not in WORD_VALENCE_DICT \
+            if i > 1 and  lowercase_words[i-1] not in sent_dict \
                 and lowercase_words[i-1] == "least":
                 if (lowercase_words[i-2] != "at" and lowercase_words[i-2] != "very"):
                     v = v*n_scalar
-            elif i > 0 and lowercase_words[i-1] not in WORD_VALENCE_DICT \
+            elif i > 0 and lowercase_words[i-1] not in sent_dict \
                 and lowercase_words[i-1] == "least":
                 v = v*n_scalar
         sentiments.append(v) 
