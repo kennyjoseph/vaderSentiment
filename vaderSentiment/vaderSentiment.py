@@ -126,7 +126,7 @@ def scalar_inc_dec(word, valence, isCap_diff):
     return scalar
 
 REMOVE_PUNCT_MAP = dict((ord(char), None) for char in string.punctuation)
-def sentiment(text, sent_dict=WORD_VALENCE_DICT):
+def sentiment(text, sent_dict=WORD_VALENCE_DICT,alpha_normalizer=15.):
     """
     Returns a float for sentiment strength based on the input text.
     Positive values are positive valence, negative value are negative valence.
@@ -291,7 +291,7 @@ def sentiment(text, sent_dict=WORD_VALENCE_DICT):
             elif sum_s < 0:
                 sum_s -= qm_amplifier
 
-        compound = normalize(sum_s)
+        compound = normalize(sum_s, alpha_normalizer)
         
         # want separate positive versus negative sentiment scores
         pos_sum = 0.0
